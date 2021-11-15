@@ -12,6 +12,4 @@ public class AlreadyExistsEntityException extends RuntimeException {
   public AlreadyExistsEntityException(String msg){
         super(msg);
     }
-
-    private AlreadyExistsEntityException(){}
 }

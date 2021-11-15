@@ -28,5 +28,10 @@ public class Guest extends BaseEntity<Long> {
   @Column
   @NotNull
   private String name;
+  private Long id;
+ 
+  public Long getId() {
+    return id;
+  }
 
 }

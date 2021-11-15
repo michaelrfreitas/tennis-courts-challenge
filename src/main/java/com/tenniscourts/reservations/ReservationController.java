@@ -1,11 +1,14 @@
 package com.tenniscourts.reservations;
 
 import com.tenniscourts.config.BaseRestController;
+
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RestController;
 
+@RestController
 @AllArgsConstructor
-public class ReservationController extends BaseRestController {
+public class ReservationController extends BaseRestController implements ReservationAPI{
 
     private final ReservationService reservationService;
 

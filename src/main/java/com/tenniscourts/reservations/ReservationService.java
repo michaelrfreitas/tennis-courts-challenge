@@ -1,23 +1,52 @@
 package com.tenniscourts.reservations;
 
 import com.tenniscourts.exceptions.EntityNotFoundException;
+import com.tenniscourts.schedules.Schedule;
+import com.tenniscourts.schedules.ScheduleRepository;
+
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+
+import static com.tenniscourts.reservations.ReservationStatus.READY_TO_PLAY;
 
 @Service
 @AllArgsConstructor
 public class ReservationService {
 
     private final ReservationRepository reservationRepository;
-
     private final ReservationMapper reservationMapper;
+    private final ScheduleRepository scheduleRepository;
 
+    @Transactional
     public ReservationDTO bookReservation(CreateReservationRequestDTO createReservationRequestDTO) {
-        throw new UnsupportedOperationException();
+        Schedule schedule = this.scheduleRepository.findById(createReservationRequestDTO.getScheduleId())
+                .orElseThrow(() -> new EntityNotFoundException("Schedule not found."));
+
+        this.validateBookReservation(schedule);
+
+        Reservation reservation = Reservation.builder().schedule(schedule).reservationStatus(READY_TO_PLAY)
+                .value(BigDecimal.valueOf(10)).build();
+
+        reservation = this.reservationRepository.save(reservation);
+        schedule.addReservation(reservation);
+        this.scheduleRepository.save(schedule);
+
+        return reservationMapper.map(reservation);
+    }
+
+    private void validateBookReservation(Schedule schedule) {
+        schedule.getReservations().stream()
+    			.findFirst()
+    			.ifPresent(reservation -> {throw new IllegalArgumentException("Schedule already reserved.");});
+
+		if (schedule.getStartDateTime().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Can schedule future date.");
+		}
     }
 
     public ReservationDTO findReservation(Long reservationId) {
@@ -52,7 +81,7 @@ public class ReservationService {
     }
 
     private void validateCancellation(Reservation reservation) {
-        if (!ReservationStatus.READY_TO_PLAY.equals(reservation.getReservationStatus())) {
+        if (!READY_TO_PLAY.equals(reservation.getReservationStatus())) {
             throw new IllegalArgumentException("Cannot cancel/reschedule because it's not in ready to play status.");
         }
 
@@ -71,8 +100,7 @@ public class ReservationService {
         return BigDecimal.ZERO;
     }
 
-    /*TODO: This method actually not fully working, find a way to fix the issue when it's throwing the error:
-            "Cannot reschedule to the same slot.*/
+    @Transactional
     public ReservationDTO rescheduleReservation(Long previousReservationId, Long scheduleId) {
         Reservation previousReservation = cancel(previousReservationId);
 
@@ -84,9 +112,7 @@ public class ReservationService {
         reservationRepository.save(previousReservation);
 
         ReservationDTO newReservation = bookReservation(CreateReservationRequestDTO.builder()
-                .guestId(previousReservation.getGuest().getId())
-                .scheduleId(scheduleId)
-                .build());
+                .guestId(previousReservation.getGuest().getId()).scheduleId(scheduleId).build());
         newReservation.setPreviousReservation(reservationMapper.map(previousReservation));
         return newReservation;
     }
